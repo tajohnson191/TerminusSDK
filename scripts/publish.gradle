@@ -1,0 +1,83 @@
+apply plugin: 'maven-publish'
+
+/**
+ * creates a package suitable for maven and gradle.  This will be used when building to create the
+ * pom.xml file declaring this library and its dependencies
+ *
+ * This expects the following properties to to be set (Note these will all be set by project.gradle if
+ * you use that) :
+ *  projectName : name of the project
+ *  gradleGroupId : reverse domain-name i.e. com.target.acorn
+ *  projectVersionName : String Version i.e. 1.0.1
+ */
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId gradleGroupId
+            artifactId projectName
+            version "${projectVersionName}"
+            artifact "${project.buildDir}/outputs/aar/${projectName}-${projectVersionName}.aar"
+            //manually add this lib's dependencies to the pom.xml
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+                //Iterate over the compile dependencies (we don't want the test ones), adding a <dependency> node for each
+                configurations.implementation.allDependencies.each {
+                    if (it instanceof ExternalModuleDependency) {
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', it.group)
+                        dependencyNode.appendNode('artifactId', it.name)
+                        dependencyNode.appendNode('version', it.version)
+                    }
+                }
+            }
+        }
+        /**
+         * this creates a second publication type with snapshot (pre-production) differences
+         * The configuration block of 'snapshot' can be named whatever you want, but when you
+         * name this config, it determines the name of the generatePomFile task below.
+         * So, if you wanted to name this 'stage' instead then the task below would need to be
+         * renamed to 'generatePomFileForStagePublication'
+         */
+        snapshot(MavenPublication) {
+            groupId gradleGroupId
+            artifactId projectName
+            //the version is set to match the versionName we set for the snapshot variant
+            version "${projectVersionName}-${projectVersion.build}-SNAPSHOT"
+            //the artifact is set to the output we set for the snapshot variant
+            artifact "${project.buildDir}/outputs/aar/${projectName}-${projectVersionName}-${projectVersion.build}-SNAPSHOT.aar"
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+                //Iterate over the compile dependencies (we don't want the test ones), adding a <dependency> node for each
+                configurations.implementation.allDependencies.each {
+                    if (it instanceof ExternalModuleDependency) {
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', it.group)
+                        dependencyNode.appendNode('artifactId', it.name)
+                        dependencyNode.appendNode('version', it.version)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * This creates a task to generate the pom file with the same name as the artifact and in the same
+ * directory as the apk
+ */
+model {
+    tasks.generatePomFileForSnapshotPublication {
+        destination = file("${buildDir}/outputs/aar/${projectName}-${projectVersionName}-${projectVersion.build}-SNAPSHOT.pom")
+    }
+    tasks.generatePomFileForReleasePublication {
+        destination = file("${buildDir}/outputs/aar/${projectName}-${projectVersionName}.pom")
+    }
+}
+/**
+ * Link the generatePomFile tasks to be automatically called after assemble
+ * TODO: Can we dynamically link regardless of buildType names?
+ */
+project.afterEvaluate {
+    tasks.findByName('assembleRelease')?.finalizedBy('generatePomFileForReleasePublication')
+    tasks.findByName('assembleSnapshot')?.finalizedBy('generatePomFileForSnapshotPublication')
+}

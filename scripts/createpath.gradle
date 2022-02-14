@@ -1,0 +1,14 @@
+task createPathFile(){
+    doLast {
+        def branch = System.getenv("BUILD_BRANCH")
+        def pathFile = new File("${rootDir}/.artifactory_path")
+        pathFile.createNewFile()
+
+        if (branch == "main") {
+            pathFile.text = "$artifactoryRepo/${gradleGroupId.replace(".", "/")}/$projectName/$projectVersionName/"
+        } else {
+            pathFile.text = "$artifactoryRepo-snapshot/${gradleGroupId.replace(".", "/")}/$projectName/$projectVersionName-${projectVersion.build}-SNAPSHOT/"
+        }
+        println "Setting artifactory path to $pathFile.text"
+    }
+}
