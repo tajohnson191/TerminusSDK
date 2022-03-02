@@ -31,7 +31,7 @@ ext {
     projectVersion = [
             major: 1,
             minor: 1,
-            patch: 1,
+            patch: 3,
             build: Integer.parseInt(System.getenv("BUILD_NUMBER") ?: "0")
     ]
     projectVersionName = "${projectVersion.major}.${projectVersion.minor}.${projectVersion.patch}"
